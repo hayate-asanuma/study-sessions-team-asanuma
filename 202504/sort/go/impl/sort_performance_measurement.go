@@ -22,12 +22,18 @@ func loadSortTestData(fileDir string) ([]interface{}, []interface{}, error) {
 	inputStr := strings.TrimSpace(string(inputData))
 	inputStr = strings.Trim(inputStr, "[]")
 	if inputStr != "" {
-		for _, numStr := range strings.Split(inputStr, ",") {
-			num, err := strconv.Atoi(strings.TrimSpace(numStr))
-			if err != nil {
-				return nil, nil, fmt.Errorf("数値のパースに失敗しました: %v", err)
+		for _, itemStr := range strings.Split(inputStr, ",") {
+			// 文字列の前後の空白と引用符を削除
+			itemStr = strings.TrimSpace(itemStr)
+			itemStr = strings.Trim(itemStr, "\"")
+			
+			// 数値としてパースを試みる
+			if num, err := strconv.Atoi(itemStr); err == nil {
+				array = append(array, num)
+			} else {
+				// 数値でない場合は文字列として扱う
+				array = append(array, itemStr)
 			}
-			array = append(array, num)
 		}
 	}
 
@@ -42,12 +48,18 @@ func loadSortTestData(fileDir string) ([]interface{}, []interface{}, error) {
 	expectedStr := strings.TrimSpace(string(expectedData))
 	expectedStr = strings.Trim(expectedStr, "[]")
 	if expectedStr != "" {
-		for _, numStr := range strings.Split(expectedStr, ",") {
-			num, err := strconv.Atoi(strings.TrimSpace(numStr))
-			if err != nil {
-				return array, nil, fmt.Errorf("期待値のパースに失敗しました: %v", err)
+		for _, itemStr := range strings.Split(expectedStr, ",") {
+			// 文字列の前後の空白と引用符を削除
+			itemStr = strings.TrimSpace(itemStr)
+			itemStr = strings.Trim(itemStr, "\"")
+			
+			// 数値としてパースを試みる
+			if num, err := strconv.Atoi(itemStr); err == nil {
+				expectedOutput = append(expectedOutput, num)
+			} else {
+				// 数値でない場合は文字列として扱う
+				expectedOutput = append(expectedOutput, itemStr)
 			}
-			expectedOutput = append(expectedOutput, num)
 		}
 	}
 
