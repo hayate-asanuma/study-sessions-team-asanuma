@@ -3,17 +3,20 @@ package impl
 import (
 	"fmt"
 	"reflect"
+	"sync"
 )
 
 // SortImplementation はソートアルゴリズムの基本実装を提供する
 type SortImplementation struct {
     minRun int
+	parallelThreshold int
 }
 
 // NewSortImplementation は新しいSortImplementationを作成する
 func NewSortImplementation() *SortImplementation {
     return &SortImplementation{
         minRun: 32,
+		parallelThreshold: 10000, // 並列化するかの閾値
     }
 }
 
@@ -37,7 +40,10 @@ func (s *SortImplementation) Sort(data []interface{}) []interface{} {
     runs := s.findRuns(newArr, compare)
 
     // runのマージ
-    return s.mergeRuns(runs, compare)
+    if len(data) >= s.parallelThreshold {
+		return s.parallelMergeRuns(runs, compare)
+	}
+	return s.mergeRuns(runs, compare)
 }
 
 // getCompareFunction は配列の型に応じた比較関数を返す
@@ -151,4 +157,30 @@ func (s *SortImplementation) mergeTwoRuns(run1, run2 []interface{}, compare func
     result = append(result, run2[j:]...)
     
     return result
+}
+
+// parallelMergeRuns は run を並列にマージする
+func (s *SortImplementation) parallelMergeRuns(runs [][]interface{}, compare func(a, b interface{}) bool) []interface{} {
+	for len(runs) > 1 {
+		var wg sync.WaitGroup
+		mergedCount := (len(runs) + 1) / 2
+		merged := make([][]interface{}, mergedCount)
+
+		for i := 0; i < len(runs); i += 2 {
+			i := i // goroutine 内で使うためコピー
+			wg.Add(1)
+			go func(index int) {
+				defer wg.Done()
+				if index+1 < len(runs) {
+					merged[index/2] = s.mergeTwoRuns(runs[index], runs[index+1], compare)
+				} else {
+					merged[index/2] = runs[index]
+				}
+			}(i)
+		}
+
+		wg.Wait()
+		runs = merged
+	}
+	return runs[0]
 }
