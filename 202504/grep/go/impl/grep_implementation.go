@@ -4,17 +4,13 @@ import (
 	"bufio"
 	"log"
 	"os"
-	"strings"
 )
 
 // GrepImplementation はGrepの基本実装を提供する
 type GrepImplementation struct{}
 
-// Search はファイルから特定のパターンを検索する
 func (g *GrepImplementation) Search(filePath, pattern string) []string {
 	var result []string
-
-	// ファイルを開く
 	f, err := os.Open(filePath)
 	if err != nil {
 		log.Printf("failed to open file %s: %v", filePath, err)
@@ -22,20 +18,51 @@ func (g *GrepImplementation) Search(filePath, pattern string) []string {
 	}
 	defer f.Close()
 
-	// 行単位でスキャン
+	lps := buildLPS(pattern) 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
-		// パターンが含まれているか判定
-		if strings.Contains(line, pattern) {
+		if kmpMatch(line, pattern, lps) { 
 			result = append(result, line)
 		}
 	}
-
-	// スキャン時のエラーがあればログに出す
 	if err := scanner.Err(); err != nil {
 		log.Printf("failed to read file %s: %v", filePath, err)
 	}
-
 	return result
+}
+
+func buildLPS(pat string) []int {
+	lps := make([]int, len(pat))
+	for i, lenPrev := 1, 0; i < len(pat); {
+		if pat[i] == pat[lenPrev] {
+			lenPrev++
+			lps[i] = lenPrev
+			i++
+		} else if lenPrev != 0 {
+			lenPrev = lps[lenPrev-1]
+		} else {
+			lps[i] = 0
+			i++
+		}
+	}
+	return lps
+}
+
+func kmpMatch(txt, pat string, lps []int) bool {
+	i, j := 0, 0
+	for i < len(txt) {
+		if txt[i] == pat[j] {
+			i++
+			j++
+			if j == len(pat) {
+				return true
+			}
+		} else if j != 0 {
+			j = lps[j-1]
+		} else {
+			i++
+		}
+	}
+	return false
 }
