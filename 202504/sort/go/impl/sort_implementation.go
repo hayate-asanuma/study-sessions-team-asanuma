@@ -3,6 +3,7 @@ package impl
 import (
 	"fmt"
 	"reflect"
+	"runtime"
 	"sync"
 )
 
@@ -20,13 +21,11 @@ func NewSortImplementation() *SortImplementation {
 	}
 }
 
-// Sort はTimSortアルゴリズムを使用してソートを行う
 func (s *SortImplementation) Sort(data []interface{}) []interface{} {
 	if len(data) == 0 {
 		return data
 	}
 
-	// 元スライスをコピー
 	newArr := make([]interface{}, len(data))
 	copy(newArr, data)
 
@@ -87,7 +86,6 @@ func (s *SortImplementation) getCompareFunction(arr []interface{}) (func(a, b in
 	}
 }
 
-// スライス arr の指定範囲の要素を反転
 func (s *SortImplementation) reverseRange(arr []interface{}, start, end int) {
 	for start < end {
 		arr[start], arr[end] = arr[end], arr[start]
@@ -154,7 +152,7 @@ func (s *SortImplementation) findRuns(arr []interface{}, compare func(a, b inter
 	return runs
 }
 
-// insertionSort は挿入ソートを実行する
+// 挿入ソートを実行する
 func (s *SortImplementation) insertionSort(run []interface{}, compare func(a, b interface{}) bool) {
 	for i := 1; i < len(run); i++ {
 		key := run[i]
@@ -212,16 +210,23 @@ func (s *SortImplementation) mergeTwoRuns(run1, run2 []interface{}, compare func
 
 // parallelMergeRuns は run を並列にマージする
 func (s *SortImplementation) parallelMergeRuns(runs [][]interface{}, compare func(a, b interface{}) bool) []interface{} {
+	maxParallel := runtime.NumCPU()
+	sem := make(chan struct{}, maxParallel) // セマフォで最大並列数制限
+
 	for len(runs) > 1 {
 		var wg sync.WaitGroup
 		mergedCount := (len(runs) + 1) / 2
 		merged := make([][]interface{}, mergedCount)
 
 		for i := 0; i < len(runs); i += 2 {
-			i := i // goroutine 内で使うためコピー
+			i := i
 			wg.Add(1)
+			sem <- struct{}{} // 空きスロットがなければブロック
+
 			go func(index int) {
 				defer wg.Done()
+				defer func() { <-sem }() // スロットを返却
+
 				if index+1 < len(runs) {
 					merged[index/2] = s.mergeTwoRuns(runs[index], runs[index+1], compare)
 				} else {
@@ -233,5 +238,7 @@ func (s *SortImplementation) parallelMergeRuns(runs [][]interface{}, compare fun
 		wg.Wait()
 		runs = merged
 	}
+
 	return runs[0]
 }
+
